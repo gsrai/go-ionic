@@ -33,3 +33,11 @@ The node version has the following dependencies:
 ```
 
 Go comes with a logger, http client and server, formatter, types
+
+```sh
+# Test Endpoints
+# Read input CSV
+curl http://localhost:8080/input/load
+# Fetch block heights
+curl http://localhost:8080/block/heights
+```
