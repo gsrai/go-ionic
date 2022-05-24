@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,9 +23,44 @@ func main() {
 
 	http.HandleFunc("/input/load", loadData)
 	http.HandleFunc("/block/heights", getRecentBlockHeight)
+	http.HandleFunc("/eventlog", readEventLog)
 
 	log.Print("Running server on " + addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+type TransferEvent struct {
+	From     types.Address
+	To       types.Address
+	Amount   float64
+	CoinName string
+}
+
+func readEventLog(w http.ResponseWriter, req *http.Request) {
+	res := covalent.GetLogEvents("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", 14256555, 14256605, types.ETH)
+
+	var transferEvents []TransferEvent
+	for _, item := range res.Data.Items {
+		if item.DecodedEvent.Name == "Transfer" {
+
+			from, _ := item.DecodedEvent.Params[0].Value.(string)
+			to, _ := item.DecodedEvent.Params[1].Value.(string)
+			foo, _ := item.DecodedEvent.Params[2].Value.(string)
+			bar, _ := strconv.ParseFloat(foo, 64)
+
+			transferEvents = append(transferEvents, TransferEvent{
+				From:     types.Address(from),
+				To:       types.Address(to),
+				Amount:   bar / math.Pow10(item.ContractDecimals),
+				CoinName: item.ContractTickerSymbol,
+			})
+		}
+	}
+
+	fmt.Fprintf(w, "|%-12s|%-6s| %-42s | %-42s |\n", "Amount", "Token", "From", "To")
+	for _, t := range transferEvents {
+		fmt.Fprintf(w, "|%12.2f|%6s| %s | %s |\n", t.Amount, t.CoinName, t.From, t.To)
+	}
 }
 
 func getRecentBlockHeight(w http.ResponseWriter, req *http.Request) {

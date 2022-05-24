@@ -2,15 +2,23 @@ package covalent
 
 import "time"
 
+type APIResponse interface {
+	Block | LogEvent
+}
+
 type Block struct {
 	SignedAt time.Time `json:"signed_at"`
 	Height   int
 }
-
-type BlockHeights struct {
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Items      []Block            `json:"items"`
-	Pagination CovalentPagination `json:"pagination"`
+type LogEvent struct {
+	DecodedEvent struct {
+		Name   string `json:"name"`
+		Params []struct {
+			Value interface{} `json:"value"`
+		} `json:"params"`
+	} `json:"decoded"`
+	ContractDecimals     int    `json:"sender_contract_decimals"`
+	ContractTickerSymbol string `json:"sender_contract_ticker_symbol"`
 }
 
 type CovalentPagination struct {
@@ -19,9 +27,15 @@ type CovalentPagination struct {
 	PageSize   int  `json:"page_size"`
 }
 
-type CovalentAPIResponse[T any] struct {
-	Data         T      `json:"data"`
-	Error        bool   `json:"error"`
-	ErrorMessage string `json:"error_message"`
-	ErrorCode    int    `json:"error_code"`
+type CovalentDataBody[T APIResponse] struct {
+	UpdatedAt  time.Time          `json:"updated_at"`
+	Items      []T                `json:"items"`
+	Pagination CovalentPagination `json:"pagination"`
+}
+
+type CovalentAPIResponse[T APIResponse] struct {
+	Data         CovalentDataBody[T] `json:"data"`
+	Error        bool                `json:"error"`
+	ErrorMessage string              `json:"error_message"`
+	ErrorCode    int                 `json:"error_code"`
 }

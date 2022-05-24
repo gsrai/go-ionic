@@ -17,3 +17,5 @@ const (
 	ETH ChainID = iota + 1
 	BSC
 )
+
+type Address string
