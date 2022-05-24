@@ -10,3 +10,10 @@ type InputCSVRecord struct {
 	Network      string
 	Rate         float64
 }
+
+type ChainID int
+
+const (
+	ETH ChainID = iota + 1
+	BSC
+)

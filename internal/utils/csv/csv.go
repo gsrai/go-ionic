@@ -15,7 +15,7 @@ func ReadAndParse[T any](path string, mapper func([]string) (T, error)) []T {
 	f, err := os.Open(path)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	defer f.Close()
@@ -30,7 +30,7 @@ func ReadAndParse[T any](path string, mapper func([]string) (T, error)) []T {
 		}
 
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 
 		if len(header) == 0 {
@@ -41,7 +41,7 @@ func ReadAndParse[T any](path string, mapper func([]string) (T, error)) []T {
 		parsedRow, err := mapper(line)
 
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 
 		parsedCSVData = append(parsedCSVData, parsedRow)
