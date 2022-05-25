@@ -1,6 +1,8 @@
 package core
 
 import (
+	"encoding/csv"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -126,6 +128,29 @@ func MergeDuplicates(eventLog []t.TransferEvent, rate float64) []t.CoinTradeInfo
 		sli = append(sli, v)
 	}
 	return sli
+}
+
+func DownloadCSV(fileName string, w http.ResponseWriter, headers []string, content []t.OutputCSVRecord) {
+	csv.NewWriter(w)
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+	w.Header().Set("Transfer-Encoding", "chunked")
+	writer := csv.NewWriter(w)
+	err := writer.Write(headers)
+	if err != nil {
+		http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, row := range content {
+		ss := row.ToSlice()
+		err := writer.Write(ss)
+		if err != nil {
+			http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	writer.Flush()
 }
 
 func MapperFunc(csvRow []string) (t.InputCSVRecord, error) {

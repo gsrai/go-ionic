@@ -72,6 +72,6 @@ func getWallets(w http.ResponseWriter, req *http.Request) {
 
 	sort.Slice(result, func(i, j int) bool { return result[i].Pumps > result[j].Pumps })
 
-	fname := utils.GenFileName()
-	csv.Download(fname, w, core.CSVHeaders, result)
+	fname := utils.GenFileName(time.Now())
+	core.DownloadCSV(fname, w, core.CSVHeaders, result)
 }
