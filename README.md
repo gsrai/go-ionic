@@ -41,3 +41,6 @@ curl http://localhost:8080/input/load
 # Fetch block heights
 curl http://localhost:8080/block/heights
 ```
+
+javascript version took: 27.69 seconds
+go version took: 19.23 seconds

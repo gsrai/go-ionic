@@ -30,6 +30,7 @@ func Download(fileName string, w http.ResponseWriter, headers []string, content 
 			return
 		}
 	}
+	writer.Flush()
 }
 
 func ReadAndParse[T any](path string, mapper func([]string) (T, error)) []T {

@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gsrai/go-ionic/internal/clients/covalent"
+	"github.com/gsrai/go-ionic/internal/clients/etherscan"
 	"github.com/gsrai/go-ionic/internal/types"
 	"github.com/gsrai/go-ionic/internal/utils"
 	"github.com/gsrai/go-ionic/internal/utils/csv"
@@ -97,16 +99,8 @@ func getWallets(w http.ResponseWriter, req *http.Request) {
 		uniqueHistories = append(uniqueHistories, md)
 	}
 	crossRef := intersection(uniqueHistories)
-	var result []types.OutputCSVRecord
-	for k, v := range crossRef {
-		result = append(result, types.OutputCSVRecord{
-			Address:  k,
-			Trades:   v.Trades,
-			Pumps:    v.Pumps,
-			SumTotal: v.SumTotal,
-			Coins:    v.Coins,
-		})
-	}
+	result := filterContracts(crossRef)
+
 	sort.Slice(result, func(i, j int) bool { return result[i].Pumps > result[j].Pumps })
 
 	fname := fmt.Sprintf("wallets_%s.csv", time.Now().Format("2006-01-02_15:04:05"))
@@ -118,6 +112,55 @@ func getWallets(w http.ResponseWriter, req *http.Request) {
 		"Number of trades",
 	}
 	csv.Download(fname, w, csvHeaders, result)
+}
+
+func worker(jobs <-chan types.Address, results chan<- types.Address, wg *sync.WaitGroup) {
+	for j := range jobs {
+		if etherscan.IsContract(j) {
+			results <- j
+		}
+	}
+	wg.Done()
+}
+
+func filterContracts(bar map[types.Address]WalletPumpHistory) []types.OutputCSVRecord {
+	var result []types.OutputCSVRecord
+	var wg sync.WaitGroup
+	jobs := make(chan types.Address, 5)
+	results := make(chan types.Address, 5)
+	wg.Add(5)
+	go worker(jobs, results, &wg)
+	go worker(jobs, results, &wg)
+	go worker(jobs, results, &wg)
+	go worker(jobs, results, &wg)
+	go worker(jobs, results, &wg)
+
+	go func() {
+		counter := 0
+		for addr := range bar {
+			if counter%5 == 0 {
+				time.Sleep(time.Second)
+				counter = 0
+			}
+			jobs <- addr
+			counter++
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	for r := range results {
+		v := bar[r]
+		result = append(result, types.OutputCSVRecord{
+			Address:  r,
+			Trades:   v.Trades,
+			Pumps:    v.Pumps,
+			SumTotal: v.SumTotal,
+			Coins:    v.Coins,
+		})
+	}
+	return result
 }
 
 type WalletPumpHistory struct {
