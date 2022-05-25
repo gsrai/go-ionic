@@ -26,7 +26,7 @@ func GetBlockHeights(chainId types.ChainID, start, end time.Time) CovalentAPIRes
 	return GetRequest[Block](url, headers, params)
 }
 
-func GetLogEvents(contractAddr types.Address, startBlock int, endBlock int, chainId types.ChainID) CovalentAPIResponse[LogEvent] {
+func GetLogEvents(contractAddr string, startBlock int, endBlock int, chainId types.ChainID) CovalentAPIResponse[LogEvent] {
 	url := fmt.Sprintf("%v/%v/events/address/%v/", API_BASE_URL, chainId, contractAddr)
 	log.Printf("getting log events, URL: %v", url)
 

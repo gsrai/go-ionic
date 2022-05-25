@@ -1,6 +1,9 @@
 package utils
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const INPUT_CSV_TIME_FORMAT = "2/1/2006 15:04"
 
@@ -10,4 +13,8 @@ func ParseDateTime(s string) (time.Time, error) {
 
 func ToISOString(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func GenFileName() string {
+	return fmt.Sprintf("wallets_%s.csv", time.Now().Format("2006-01-02_15:04:05"))
 }

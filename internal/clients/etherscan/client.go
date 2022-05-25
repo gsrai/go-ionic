@@ -6,15 +6,13 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/gsrai/go-ionic/internal/types"
 )
 
 const API_BASE_URL = "https://api.etherscan.io/api"
 const API_KEY = "1CAF88PW5CPEJ7I6GD43ZCUG3YGH6HAUE1"
 const NO_CODE = `0x`
 
-func IsContract(address types.Address) bool {
+func IsContract(address string) bool {
 	c := http.Client{Timeout: time.Duration(10) * time.Second}
 
 	req, err := http.NewRequest("GET", API_BASE_URL, nil)
@@ -27,7 +25,7 @@ func IsContract(address types.Address) bool {
 	q := req.URL.Query()
 	q.Add("apiKey", API_KEY)
 	q.Add("module", "proxy")
-	q.Add("address", string(address))
+	q.Add("address", address)
 	q.Add("tag", "latest")
 	q.Add("action", "eth_getCode")
 	req.URL.RawQuery = q.Encode()

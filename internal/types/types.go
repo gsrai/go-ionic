@@ -16,7 +16,7 @@ type InputCSVRecord struct {
 }
 
 type OutputCSVRecord struct {
-	Address  Address
+	Address  string
 	Trades   int
 	SumTotal float64
 	Pumps    int
@@ -24,7 +24,7 @@ type OutputCSVRecord struct {
 }
 
 func (o OutputCSVRecord) ToSlice() []string {
-	a := string(o.Address)
+	a := o.Address
 	p := strconv.Itoa(o.Pumps)
 	c := fmt.Sprintf("%q", o.Coins)
 	s := fmt.Sprintf("%.2f", o.SumTotal)
@@ -40,4 +40,23 @@ const (
 	BSC
 )
 
-type Address string
+type TransferEvent struct {
+	FromAddr string
+	ToAddr   string
+	Amount   float64
+	CoinName string
+}
+
+type WalletPumpHistory struct {
+	Trades   int
+	SumTotal float64
+	Pumps    int
+	Coins    []string
+}
+
+type CoinTradeInfo struct {
+	Address    string
+	CoinName   string
+	Occurrence int
+	SumTotal   float64
+}
