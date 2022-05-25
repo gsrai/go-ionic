@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -24,9 +25,174 @@ func main() {
 	http.HandleFunc("/input/load", loadData)
 	http.HandleFunc("/block/heights", getRecentBlockHeight)
 	http.HandleFunc("/eventlog", readEventLog)
+	http.HandleFunc("/get_wallets", getWallets)
 
 	log.Print("Running server on " + addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+func getWallets(w http.ResponseWriter, req *http.Request) {
+	mapperFunc := func(csvRow []string) (types.InputCSVRecord, error) {
+		rate, err := strconv.ParseFloat(csvRow[5], 64)
+		if err != nil {
+			return types.InputCSVRecord{}, err
+		}
+
+		from, err := utils.ParseDateTime(csvRow[3])
+		if err != nil {
+			return types.InputCSVRecord{}, err
+		}
+
+		to, err := utils.ParseDateTime(csvRow[4])
+		if err != nil {
+			return types.InputCSVRecord{}, err
+		}
+
+		return types.InputCSVRecord{
+			CoinName:     csvRow[0],
+			ContractAddr: csvRow[1],
+			From:         from,
+			To:           to,
+			Network:      csvRow[2],
+			Rate:         rate,
+		}, nil
+	}
+
+	data := csv.ReadAndParse(INPUT_FILE_PATH, mapperFunc)
+
+	var histories [][]TransferEvent
+
+	for _, row := range data {
+		log.Printf("fetching block heights between %v and %v for[%v]", row.From, row.To, row.CoinName)
+		res := covalent.GetBlockHeights(types.ETH, row.From, row.From.Add(time.Hour))
+		startBlock := res.Data.Items[0]
+		res = covalent.GetBlockHeights(types.ETH, row.To, row.To.Add(time.Hour))
+		endBlock := res.Data.Items[0]
+
+		events := covalent.GetLogEvents(types.Address(row.ContractAddr), startBlock.Height, endBlock.Height, types.ETH)
+
+		var transferEvents []TransferEvent
+		for _, item := range events.Data.Items {
+			if item.DecodedEvent.Name == "Transfer" {
+
+				from, _ := item.DecodedEvent.Params[0].Value.(string)
+				to, _ := item.DecodedEvent.Params[1].Value.(string)
+				foo, _ := item.DecodedEvent.Params[2].Value.(string)
+				bar, _ := strconv.ParseFloat(foo, 64)
+
+				transferEvents = append(transferEvents, TransferEvent{
+					From:     types.Address(from),
+					To:       types.Address(to),
+					Amount:   bar / math.Pow10(item.ContractDecimals),
+					CoinName: item.ContractTickerSymbol,
+				})
+			}
+		}
+		histories = append(histories, transferEvents)
+	}
+
+	var uniqueHistories [][]CoinTradeInfo
+	for idx, h := range histories {
+		md := mergeDuplicates(h, data[idx].Rate)
+		uniqueHistories = append(uniqueHistories, md)
+	}
+	crossRef := intersection(uniqueHistories)
+	var result []types.OutputCSVRecord
+	for k, v := range crossRef {
+		result = append(result, types.OutputCSVRecord{
+			Address:  k,
+			Trades:   v.Trades,
+			Pumps:    v.Pumps,
+			SumTotal: v.SumTotal,
+			Coins:    v.Coins,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Pumps > result[j].Pumps })
+
+	fname := fmt.Sprintf("wallets_%s.csv", time.Now().Format("2006-01-02_15:04:05"))
+	csvHeaders := []string{
+		"Wallet address",
+		"Number of pumps",
+		"Coins traded",
+		"Total spent (USD)",
+		"Number of trades",
+	}
+	csv.Download(fname, w, csvHeaders, result)
+}
+
+type WalletPumpHistory struct {
+	Trades   int
+	SumTotal float64
+	Pumps    int
+	Coins    []string
+}
+
+func intersection(uniqueHistories [][]CoinTradeInfo) map[types.Address]WalletPumpHistory {
+	result := make(map[types.Address]WalletPumpHistory)
+	for i := 0; i < len(uniqueHistories); i++ {
+		for j := 0; j < len(uniqueHistories[i]); j++ {
+			record := uniqueHistories[i][j]
+			for k := i + 1; k < len(uniqueHistories); k++ {
+				index := -1
+				for idx, ele := range uniqueHistories[k] {
+					if ele.Address == record.Address {
+						index = idx
+						break
+					}
+				}
+				if index == -1 {
+					continue
+				}
+				if wallet, pres := result[record.Address]; pres {
+					wallet.Trades += uniqueHistories[k][index].Occurrence
+					wallet.SumTotal += uniqueHistories[k][index].SumTotal
+					wallet.Pumps++
+					wallet.Coins = append(wallet.Coins, uniqueHistories[k][index].CoinName)
+					result[record.Address] = wallet
+				} else {
+					result[record.Address] = WalletPumpHistory{
+						Trades:   uniqueHistories[k][index].Occurrence + record.Occurrence,
+						SumTotal: uniqueHistories[k][index].SumTotal + record.SumTotal,
+						Pumps:    2,
+						Coins:    []string{uniqueHistories[k][index].CoinName, record.CoinName},
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
+type CoinTradeInfo struct {
+	Address    types.Address
+	CoinName   string
+	Occurrence int
+	SumTotal   float64
+}
+
+func mergeDuplicates(eventLog []TransferEvent, rate float64) []CoinTradeInfo {
+	var sli []CoinTradeInfo
+	m := make(map[types.Address]CoinTradeInfo)
+	for _, entry := range eventLog {
+		if cti, pres := m[entry.To]; pres {
+			cti.Occurrence += 1
+			cti.SumTotal += entry.Amount
+			m[entry.To] = cti
+		} else {
+			m[entry.To] = CoinTradeInfo{
+				Address:    entry.To,
+				Occurrence: 1,
+				SumTotal:   entry.Amount,
+				CoinName:   entry.CoinName,
+			}
+		}
+	}
+
+	for _, v := range m {
+		v.SumTotal *= rate
+		sli = append(sli, v)
+	}
+	return sli
 }
 
 type TransferEvent struct {

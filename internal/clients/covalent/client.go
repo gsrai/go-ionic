@@ -36,14 +36,14 @@ func GetLogEvents(contractAddr types.Address, startBlock int, endBlock int, chai
 		"format":         "JSON",
 		"starting-block": strconv.Itoa(startBlock),
 		"ending-block":   strconv.Itoa(endBlock),
-		"page-size":      strconv.Itoa(500),
+		"page-size":      strconv.Itoa(5000),
 	}
 
 	return paginatedGetRequest[LogEvent](url, headers, params)
 }
 
 func GetRequest[T APIResponse](url string, headers map[string]string, params map[string]string) CovalentAPIResponse[T] {
-	c := http.Client{Timeout: time.Duration(1) * time.Second}
+	c := http.Client{Timeout: time.Duration(10) * time.Second}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -88,7 +88,7 @@ func paginatedGetRequest[T APIResponse](url string, headers map[string]string, p
 	page := 0
 
 	for {
-		log.Printf("fetching page %d\n", page)
+		// log.Printf("fetching page %d\n", page)
 		params["page-number"] = strconv.Itoa(page)
 		res := GetRequest[T](url, headers, params)
 		if len(res.Data.Items) == 0 {

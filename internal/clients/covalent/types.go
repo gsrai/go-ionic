@@ -8,7 +8,7 @@ type APIResponse interface {
 
 type Block struct {
 	SignedAt time.Time `json:"signed_at"`
-	Height   int
+	Height   int       `json:"height"`
 }
 type LogEvent struct {
 	DecodedEvent struct {
