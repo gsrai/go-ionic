@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -29,6 +30,11 @@ func main() {
 }
 
 func getWallets(w http.ResponseWriter, req *http.Request) {
+	defer func(t time.Time) {
+		elapsed := time.Since(t)
+		fmt.Printf("finished getting wallets in %s 👍\n", elapsed)
+	}(time.Now())
+
 	var histories [][]t.TransferEvent
 	var uniqueHistories [][]t.CoinTradeInfo
 

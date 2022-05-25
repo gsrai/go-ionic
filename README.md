@@ -1,6 +1,6 @@
 # go ionic server
 
-Translate [this](https://github.com/gsrai/Ionic) from `typescript` & `node` to `go`.
+Translate [this](https://github.com/gsrai/Ionic) from `typescript` & `node` to `go` using zero dependencies.
 
 The node version has the following dependencies:
 
@@ -32,15 +32,30 @@ The node version has the following dependencies:
 }
 ```
 
-Go comes with a logger, http client and server, formatter, types
+Go comes with:
+
+- a logger
+- a HTTP client
+- a HTTP server
+- a formatter (no prettier or eslint)
+- types (no typescript BS)
+- a stdlib that comes with a csv reader and writer
+- real concurrency
+
+## how to run
 
 ```sh
-# Test Endpoints
-# Read input CSV
-curl http://localhost:8080/input/load
-# Fetch block heights
-curl http://localhost:8080/block/heights
+go mod tidy # optional?
+make build && ./bin/ionic
 ```
 
-javascript version took: 27.69 seconds
-go version took: 19.23 seconds
+then in another terminal, hit the server using curl:
+
+```sh
+curl -OJ http://localhost:8080/
+```
+
+## TODO
+
+- use [httptest](https://pkg.go.dev/net/http/httptest)
+- concurrently hit the Covalent API (`5 requests per second per API key`)
