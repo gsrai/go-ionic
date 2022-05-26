@@ -77,4 +77,3 @@ curl -OJ http://localhost:8080/
 ## TODO
 
 - use [httptest](https://pkg.go.dev/net/http/httptest)
-- concurrently hit the Covalent API (`5 requests per second per API key`)

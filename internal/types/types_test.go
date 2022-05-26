@@ -13,7 +13,7 @@ func TestToSliceMethod(t *testing.T) {
 		Trades:   4,
 		Coins:    []string{"CRO", "ALCX"},
 	}
-	want := []string{"0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf", "2", `["CRO" "ALCX"]`, "3210.88", "4"}
+	want := []string{"0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf", "2", `[CRO ALCX]`, "3210.88", "4"}
 
 	got := in.ToSlice()
 	if !reflect.DeepEqual(got, want) {

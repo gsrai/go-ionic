@@ -2,15 +2,20 @@ package core
 
 import (
 	"encoding/csv"
+	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/gsrai/go-ionic/internal/clients/covalent"
 	"github.com/gsrai/go-ionic/internal/clients/etherscan"
 	t "github.com/gsrai/go-ionic/internal/types"
 	"github.com/gsrai/go-ionic/internal/utils"
 )
+
+const API_LIMIT = 5 // rate limit in requests per second
 
 var CSVHeaders = []string{
 	"Wallet address",
@@ -18,6 +23,73 @@ var CSVHeaders = []string{
 	"Coins traded",
 	"Total spent (USD)",
 	"Number of trades",
+}
+
+func processRow(row t.InputCSVRecord) []t.TransferEvent {
+	log.Printf("fetching block heights between %v and %v for[%v]", row.From, row.To, row.CoinName)
+	res := covalent.GetBlockHeights(t.ETH, row.From, row.From.Add(time.Hour))
+	startBlock := res.Data.Items[0]
+	res = covalent.GetBlockHeights(t.ETH, row.To, row.To.Add(time.Hour))
+	endBlock := res.Data.Items[0]
+
+	events := covalent.GetLogEvents(row.ContractAddr, startBlock.Height, endBlock.Height, t.ETH)
+
+	var transferEvents []t.TransferEvent
+	for _, item := range events.Data.Items {
+		if item.DecodedEvent.Name == "Transfer" {
+			from, _ := item.DecodedEvent.Params[0].Value.(string)
+			to, _ := item.DecodedEvent.Params[1].Value.(string)
+			foo, _ := item.DecodedEvent.Params[2].Value.(string)
+			bar, _ := strconv.ParseFloat(foo, 64)
+
+			transferEvents = append(transferEvents, t.TransferEvent{
+				FromAddr: from,
+				ToAddr:   to,
+				Amount:   bar / math.Pow10(item.ContractDecimals),
+				CoinName: item.ContractTickerSymbol,
+			})
+		}
+	}
+	return transferEvents
+}
+
+func transfersWorker(jobs <-chan t.InputCSVRecord, results chan<- []t.TransferEvent, wg *sync.WaitGroup) {
+	for j := range jobs {
+		results <- processRow(j)
+	}
+	wg.Done()
+}
+
+func GetTransferEvents(data []t.InputCSVRecord) [][]t.TransferEvent {
+	var transfers [][]t.TransferEvent
+	var wg sync.WaitGroup
+	jobs := make(chan t.InputCSVRecord, API_LIMIT)
+	results := make(chan []t.TransferEvent, API_LIMIT)
+	wg.Add(API_LIMIT)
+
+	for i := 0; i < API_LIMIT; i++ {
+		go transfersWorker(jobs, results, &wg)
+	}
+
+	go func() {
+		counter := 0
+		for _, row := range data {
+			if counter%API_LIMIT == 0 {
+				time.Sleep(time.Second)
+				counter = 0
+			}
+			jobs <- row
+			counter++
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	for eventlog := range results {
+		transfers = append(transfers, eventlog)
+	}
+	return transfers
 }
 
 func worker(jobs <-chan string, results chan<- string, wg *sync.WaitGroup) {
@@ -29,22 +101,21 @@ func worker(jobs <-chan string, results chan<- string, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func FilterContracts(bar map[string]t.WalletPumpHistory) []t.OutputCSVRecord {
-	var result []t.OutputCSVRecord
+func FilterContracts(wallets map[string]t.WalletPumpHistory) []t.OutputCSVRecord {
+	var filteredWallets []t.OutputCSVRecord
 	var wg sync.WaitGroup
-	jobs := make(chan string, 5)
-	results := make(chan string, 5)
-	wg.Add(5)
-	go worker(jobs, results, &wg)
-	go worker(jobs, results, &wg)
-	go worker(jobs, results, &wg)
-	go worker(jobs, results, &wg)
-	go worker(jobs, results, &wg)
+	jobs := make(chan string, API_LIMIT)
+	results := make(chan string, API_LIMIT)
+	wg.Add(API_LIMIT)
+
+	for i := 0; i < API_LIMIT; i++ {
+		go worker(jobs, results, &wg)
+	}
 
 	go func() {
 		counter := 0
-		for addr := range bar {
-			if counter%5 == 0 {
+		for addr := range wallets {
+			if counter%API_LIMIT == 0 {
 				time.Sleep(time.Second)
 				counter = 0
 			}
@@ -56,17 +127,17 @@ func FilterContracts(bar map[string]t.WalletPumpHistory) []t.OutputCSVRecord {
 		close(results)
 	}()
 
-	for r := range results {
-		v := bar[r]
-		result = append(result, t.OutputCSVRecord{
-			Address:  r,
+	for addr := range results {
+		v := wallets[addr]
+		filteredWallets = append(filteredWallets, t.OutputCSVRecord{
+			Address:  addr,
 			Trades:   v.Trades,
 			Pumps:    v.Pumps,
 			SumTotal: v.SumTotal,
 			Coins:    v.Coins,
 		})
 	}
-	return result
+	return filteredWallets
 }
 
 func Intersection(uniqueHistories [][]t.CoinTradeInfo) map[string]t.WalletPumpHistory {

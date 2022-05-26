@@ -26,7 +26,7 @@ type OutputCSVRecord struct {
 func (o OutputCSVRecord) ToSlice() []string {
 	a := o.Address
 	p := strconv.Itoa(o.Pumps)
-	c := fmt.Sprintf("%q", o.Coins)
+	c := fmt.Sprintf("%v", o.Coins)
 	s := fmt.Sprintf("%.2f", o.SumTotal)
 	t := strconv.Itoa(o.Trades)
 
