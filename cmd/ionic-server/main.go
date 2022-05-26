@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gsrai/go-ionic/config"
 	"github.com/gsrai/go-ionic/internal/clients/covalent"
 	"github.com/gsrai/go-ionic/internal/core"
 	t "github.com/gsrai/go-ionic/internal/types"
@@ -16,12 +17,10 @@ import (
 	"github.com/gsrai/go-ionic/internal/utils/csv"
 )
 
-const HOST = "127.0.0.1"
-const PORT = "8080"
-const INPUT_FILE_PATH = "tmp/input.csv"
-
 func main() {
-	addr := HOST + ":" + PORT
+	config.Init()
+	host, port := config.Get().ServerHost, config.Get().ServerPort
+	addr := host + ":" + port
 
 	http.HandleFunc("/", getWallets)
 
@@ -38,7 +37,7 @@ func getWallets(w http.ResponseWriter, req *http.Request) {
 	var histories [][]t.TransferEvent
 	var uniqueHistories [][]t.CoinTradeInfo
 
-	data := csv.ReadAndParse(INPUT_FILE_PATH, core.MapperFunc)
+	data := csv.ReadAndParse(config.Get().InputFilePath, core.MapperFunc)
 
 	for _, row := range data {
 		log.Printf("fetching block heights between %v and %v for[%v]", row.From, row.To, row.CoinName)

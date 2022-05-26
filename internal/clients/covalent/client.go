@@ -9,15 +9,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gsrai/go-ionic/config"
 	"github.com/gsrai/go-ionic/internal/types"
 	"github.com/gsrai/go-ionic/internal/utils"
 )
 
-const API_BASE_URL = "https://api.covalenthq.com/v1"
-const API_KEY = "ckey_0f89a2f9110f48e0837ee6770c9"
-
 func GetBlockHeights(chainId types.ChainID, start, end time.Time) CovalentAPIResponse[Block] {
-	url := fmt.Sprintf("%v/%v/block_v2/%v/%v/", API_BASE_URL, chainId, utils.ToISOString(start), utils.ToISOString(end))
+	url := fmt.Sprintf("%v/%v/block_v2/%v/%v/", config.Get().CovalentAPI.URL, chainId, utils.ToISOString(start), utils.ToISOString(end))
 	log.Printf("getting block height, URL: %v", url)
 
 	headers := map[string]string{"Accept": `application/json`}
@@ -27,7 +25,7 @@ func GetBlockHeights(chainId types.ChainID, start, end time.Time) CovalentAPIRes
 }
 
 func GetLogEvents(contractAddr string, startBlock int, endBlock int, chainId types.ChainID) CovalentAPIResponse[LogEvent] {
-	url := fmt.Sprintf("%v/%v/events/address/%v/", API_BASE_URL, chainId, contractAddr)
+	url := fmt.Sprintf("%v/%v/events/address/%v/", config.Get().CovalentAPI.URL, chainId, contractAddr)
 	log.Printf("getting log events, URL: %v", url)
 
 	headers := map[string]string{"Accept": `application/json`}
@@ -55,7 +53,7 @@ func GetRequest[T APIResponse](url string, headers map[string]string, params map
 	}
 
 	q := req.URL.Query()
-	q.Add("key", API_KEY)
+	q.Add("key", config.Get().CovalentAPI.Token)
 	for k, v := range params {
 		q.Add(k, v)
 	}

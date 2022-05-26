@@ -17,3 +17,4 @@
 bin
 tmp
 wallets*.csv
+*.config.json

@@ -44,12 +44,31 @@ Go comes with:
 
 ## how to run
 
-```sh
-go mod tidy # optional?
-make build && ./bin/ionic
+Create a `dev.config.json` file in the project root:
+
+```json
+{
+  "INPUT_FILE_PATH": "tmp/input.csv",
+  "HOST": "127.0.0.1",
+  "PORT": "8080",
+  "COVALENT_API": {
+    "URL": "https://api.covalenthq.com/v1",
+    "KEY": "..."
+  },
+  "ETHERSCAN_API": {
+    "URL": "https://api.etherscan.io/api",
+    "KEY": "..."
+  }
+}
 ```
 
-then in another terminal, hit the server using curl:
+Build and run the server:
+
+```sh
+make build && ./bin/ionic # -dev flag is optional as it is the default
+```
+
+Then in another terminal, hit the server using curl:
 
 ```sh
 curl -OJ http://localhost:8080/

@@ -6,16 +6,16 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gsrai/go-ionic/config"
 )
 
-const API_BASE_URL = "https://api.etherscan.io/api"
-const API_KEY = "1CAF88PW5CPEJ7I6GD43ZCUG3YGH6HAUE1"
 const NO_CODE = `0x`
 
 func IsContract(address string) bool {
 	c := http.Client{Timeout: time.Duration(10) * time.Second}
 
-	req, err := http.NewRequest("GET", API_BASE_URL, nil)
+	req, err := http.NewRequest("GET", config.Get().EtherscanAPI.URL, nil)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -23,7 +23,7 @@ func IsContract(address string) bool {
 	req.Header.Add("Accept", "application/json")
 
 	q := req.URL.Query()
-	q.Add("apiKey", API_KEY)
+	q.Add("apiKey", config.Get().EtherscanAPI.Token)
 	q.Add("module", "proxy")
 	q.Add("address", address)
 	q.Add("tag", "latest")
