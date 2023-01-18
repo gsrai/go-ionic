@@ -41,8 +41,18 @@ func getWallets(w http.ResponseWriter, req *http.Request) {
 		uniqueHistories = append(uniqueHistories, md)
 	}
 
-	crossRef := core.Intersection(uniqueHistories)
-	result := core.FilterContracts(crossRef)
+	// crossRef := core.Intersection(uniqueHistories)
+	crossRef := core.CollateData(uniqueHistories)
+
+	// filter out contracts with less than 3 pumps
+	var filtered map[string]t.WalletPumpHistory = make(map[string]t.WalletPumpHistory)
+	for addr, item := range crossRef {
+		if item.Pumps >= 3 {
+			filtered[addr] = item
+		}
+	}
+
+	result := core.FilterContracts(filtered)
 
 	sort.Slice(result, func(i, j int) bool { return result[i].Pumps > result[j].Pumps })
 

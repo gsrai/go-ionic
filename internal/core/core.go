@@ -21,8 +21,8 @@ var CSVHeaders = []string{
 	"Wallet address",
 	"Number of pumps",
 	"Coins traded",
-	"Total spent (USD)",
 	"Number of trades",
+	"Total spent (USD)",
 }
 
 func processRow(row t.InputCSVRecord) []t.TransferEvent {
@@ -112,6 +112,7 @@ func FilterContracts(wallets map[string]t.WalletPumpHistory) []t.OutputCSVRecord
 		go worker(jobs, results, &wg)
 	}
 
+	log.Printf("Total wallets: %v", len(wallets))
 	go func() {
 		counter := 0
 		for addr := range wallets {
@@ -129,46 +130,87 @@ func FilterContracts(wallets map[string]t.WalletPumpHistory) []t.OutputCSVRecord
 
 	for addr := range results {
 		v := wallets[addr]
+		c := utils.GetMapKeys(v.Coins)
 		filteredWallets = append(filteredWallets, t.OutputCSVRecord{
 			Address:  addr,
 			Trades:   v.Trades,
 			Pumps:    v.Pumps,
 			SumTotal: v.SumTotal,
-			Coins:    v.Coins,
+			Coins:    c,
 		})
 	}
 	return filteredWallets
 }
 
+// this was bugged, but could also be optimized:
+// we can just concatinate the eventlogs and go through them once, adding to the map.
+// currently we are going through each coin's eventlog and comparing it to the other coins' eventlogs
+// this has a worst case complexity of O(n^3)
+// concatination would be O(n) and then we can go through the eventlog once, adding to the map.
 func Intersection(uniqueHistories [][]t.CoinTradeInfo) map[string]t.WalletPumpHistory {
 	result := make(map[string]t.WalletPumpHistory)
+	// each coin's deduped eventlog (list of transfer events)
 	for i := 0; i < len(uniqueHistories); i++ {
+		// each item is an wallet address in the deduped event log
 		for j := 0; j < len(uniqueHistories[i]); j++ {
 			record := uniqueHistories[i][j]
+			// skip if address is in result map
+			if _, pres := result[record.Address]; pres {
+				continue
+			}
 			for k := i + 1; k < len(uniqueHistories); k++ {
 				index := -1
 				for idx, ele := range uniqueHistories[k] {
 					if ele.Address == record.Address {
-						index = idx
+						index = idx // only one address per eventlog as it was deduped
 						break
 					}
 				}
 				if index == -1 {
 					continue
 				}
+				// if found a duplicate address, find and add in result map
 				if wallet, pres := result[record.Address]; pres {
 					wallet.Trades += uniqueHistories[k][index].Occurrence
 					wallet.SumTotal += uniqueHistories[k][index].SumTotal
 					wallet.Pumps++
-					wallet.Coins = append(wallet.Coins, uniqueHistories[k][index].CoinName)
+					wallet.Coins[uniqueHistories[k][index].CoinName] = struct{}{}
 					result[record.Address] = wallet
 				} else {
 					result[record.Address] = t.WalletPumpHistory{
 						Trades:   uniqueHistories[k][index].Occurrence + record.Occurrence,
 						SumTotal: uniqueHistories[k][index].SumTotal + record.SumTotal,
 						Pumps:    2,
-						Coins:    []string{uniqueHistories[k][index].CoinName, record.CoinName},
+						Coins: map[string]struct{}{
+							record.CoinName:                    {},
+							uniqueHistories[k][index].CoinName: {},
+						},
 					}
+				}
+			}
+		}
+	}
+	return result
+}
+
+func CollateData(data [][]t.CoinTradeInfo) map[string]t.WalletPumpHistory {
+	result := make(map[string]t.WalletPumpHistory)
+	for _, coin := range data {
+		for _, entry := range coin {
+			if wallet, pres := result[entry.Address]; pres {
+				wallet.Trades += entry.Occurrence
+				wallet.SumTotal += entry.SumTotal
+				wallet.Pumps++
+				wallet.Coins[entry.CoinName] = struct{}{}
+				result[entry.Address] = wallet
+			} else {
+				result[entry.Address] = t.WalletPumpHistory{
+					Trades:   entry.Occurrence,
+					SumTotal: entry.SumTotal,
+					Pumps:    1,
+					Coins: map[string]struct{}{
+						entry.CoinName: {},
+					},
 				}
 			}
 		}

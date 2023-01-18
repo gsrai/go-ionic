@@ -27,8 +27,8 @@ func (o OutputCSVRecord) ToSlice() []string {
 	a := o.Address
 	p := strconv.Itoa(o.Pumps)
 	c := fmt.Sprintf("%v", o.Coins)
-	s := fmt.Sprintf("%.2f", o.SumTotal)
 	t := strconv.Itoa(o.Trades)
+	s := fmt.Sprintf("%.2f", o.SumTotal)
 
 	return []string{a, p, c, s, t}
 }
@@ -51,7 +51,7 @@ type WalletPumpHistory struct {
 	Trades   int
 	SumTotal float64
 	Pumps    int
-	Coins    []string
+	Coins    map[string]struct{}
 }
 
 type CoinTradeInfo struct {
