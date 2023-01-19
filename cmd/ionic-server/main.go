@@ -1,20 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"github.com/gsrai/go-ionic/internal/misc"
-	"log"
-	"net/http"
-	"regexp"
-	"sort"
-	"sync"
-	"time"
-
 	"github.com/gsrai/go-ionic/config"
 	"github.com/gsrai/go-ionic/internal/core"
+	"github.com/gsrai/go-ionic/internal/misc"
 	t "github.com/gsrai/go-ionic/internal/types"
 	"github.com/gsrai/go-ionic/internal/utils"
 	"github.com/gsrai/go-ionic/internal/utils/csv"
+	"log"
+	"net/http"
+	"regexp"
+	"sync"
 )
 
 func main() {
@@ -23,55 +19,12 @@ func main() {
 	addr := host + ":" + port
 
 	http.HandleFunc("/", getWallets)
-	http.HandleFunc("/v2/", getPumps)
 
 	log.Print("Running server on " + addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
 func getWallets(w http.ResponseWriter, req *http.Request) {
-	defer func(t time.Time) {
-		elapsed := time.Since(t)
-		fmt.Printf("finished getting wallets in %s 👍\n", elapsed)
-	}(time.Now())
-
-	var uniqueHistories [][]t.CoinTradeInfo
-
-	data := csv.ReadAndParse(config.Get().InputFilePath, core.MapperFunc)
-	transfers := core.GetTransferEvents(data)
-
-	for idx, h := range transfers {
-		md := core.MergeDuplicates(h, data[idx].Rate)
-		uniqueHistories = append(uniqueHistories, md)
-	}
-
-	// crossRef := core.Intersection(uniqueHistories)
-	crossRef := core.CollateData(uniqueHistories)
-
-	// filter out contracts with less than 3 pumps
-	var filtered map[string]t.WalletPumpHistory = make(map[string]t.WalletPumpHistory)
-	for addr, item := range crossRef {
-		if item.Pumps >= 3 {
-			filtered[addr] = item
-		}
-	}
-
-	result := core.FilterContracts(filtered)
-
-	sort.Slice(result, func(i, j int) bool { return result[i].Pumps > result[j].Pumps })
-
-	fname := utils.GenFileName(time.Now())
-	core.DownloadCSV(fname, w, core.CSVHeaders, result)
-}
-
-// ---------
-
-func getPumps(w http.ResponseWriter, _ *http.Request) {
-	defer func(t time.Time) {
-		elapsed := time.Since(t)
-		fmt.Printf("finished getting wallets in %s 👍\n", elapsed)
-	}(time.Now())
-
 	r := regexp.MustCompile(`\(([^\)]+)\)`)
 	parseCoinName := func(s string) string {
 		res := r.FindString(s)
@@ -110,7 +63,7 @@ func getPumps(w http.ResponseWriter, _ *http.Request) {
 		log.Println("unpacked logevents")
 	}(transferEvents, eventLog)
 
-	go core.CollateDataP(eventLog, wallets, coinRates)
+	go core.CollateData(eventLog, wallets, coinRates)
 	// don't forget to wait!
 	var wg sync.WaitGroup
 	go func(in <-chan t.WalletPumpHistory, out chan<- t.OutputCSVRecord) {
@@ -129,6 +82,6 @@ func getPumps(w http.ResponseWriter, _ *http.Request) {
 		log.Printf("streaming csv data\n")
 	}(wallets, dataOutStream)
 	wg.Add(1)
-	core.DownloadCSVP(w, core.CSVHeaders, dataOutStream) // why not use core.CSVHeaders directly?
+	core.DownloadCSV(w, core.CSVHeaders, dataOutStream) // why not use core.CSVHeaders directly?
 	wg.Done()
 }
