@@ -50,6 +50,7 @@ func IsContract(address string) bool {
 	}
 
 	if res.Error.Message != "" {
+		log.Println(res.Error.Message)
 		return false
 	}
 

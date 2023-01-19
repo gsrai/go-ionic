@@ -319,33 +319,33 @@ func CollateDataP(in <-chan t.TransferEvent, out chan<- t.WalletPumpHistory, coi
 				wallets <- *wallet
 			}
 		}
-		log.Printf("finished filtering by pumps\n")
 	}()
 
 	FilterContractsP(wallets, out)
 }
 
 func worker3(jobs <-chan t.WalletPumpHistory, results chan<- t.WalletPumpHistory, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for j := range jobs {
 		if !etherscan.IsContract(j.Address) {
 			results <- j
 		}
 	}
-	wg.Done()
 }
 
+// TODO: weird bug, if i have more than 2 go routines work on this, i get inconsistant results
 func FilterContractsP(in <-chan t.WalletPumpHistory, out chan<- t.WalletPumpHistory) {
 	defer close(out)
 	var wg sync.WaitGroup
-	jobs := make(chan t.WalletPumpHistory, ApiLimit)
-	for i := 0; i < ApiLimit; i++ {
+	jobs := make(chan t.WalletPumpHistory, 2)
+	for i := 0; i < 2; i++ {
 		go worker3(jobs, out, &wg)
 		wg.Add(1)
 	}
 
 	counter := 0
 	for wallet := range in {
-		if counter%ApiLimit == 0 {
+		if counter%2 == 0 {
 			time.Sleep(time.Second)
 			counter = 0
 		}
@@ -420,7 +420,6 @@ func DownloadCSVP(w http.ResponseWriter, headers []string, content <-chan t.Outp
 	for row := range content {
 		count++
 		ss := row.ToSlice()
-		log.Println(ss)
 		err := writer.Write(ss)
 		if err != nil {
 			http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
