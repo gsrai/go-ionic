@@ -49,9 +49,9 @@ func IsContract(address string) bool {
 		log.Panic(err)
 	}
 
-	if res.Data.Error.Message != "" {
+	if res.Error.Message != "" {
 		return false
 	}
 
-	return res.Data.Result != NO_CODE
+	return res.Result != NO_CODE
 }

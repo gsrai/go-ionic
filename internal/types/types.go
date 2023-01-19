@@ -30,7 +30,7 @@ func (o OutputCSVRecord) ToSlice() []string {
 	t := strconv.Itoa(o.Trades)
 	s := fmt.Sprintf("%.2f", o.SumTotal)
 
-	return []string{a, p, c, s, t}
+	return []string{a, p, c, t, s}
 }
 
 type ChainID int
@@ -48,10 +48,24 @@ type TransferEvent struct {
 }
 
 type WalletPumpHistory struct {
+	Address  string
 	Trades   int
 	SumTotal float64
 	Pumps    int
 	Coins    map[string]struct{}
+}
+
+func NewWalletPumpHistory(address string) *WalletPumpHistory {
+	return &WalletPumpHistory{Address: address, Coins: map[string]struct{}{}}
+}
+
+func (w *WalletPumpHistory) AddTransfer(coinName string, amount, rate float64) {
+	if _, pres := w.Coins[coinName]; !pres {
+		w.Coins[coinName] = struct{}{}
+		w.Pumps++
+	}
+	w.Trades++
+	w.SumTotal += amount * rate
 }
 
 type CoinTradeInfo struct {

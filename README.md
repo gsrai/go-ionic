@@ -77,3 +77,27 @@ curl -OJ http://localhost:8080/
 ## TODO
 
 - use [httptest](https://pkg.go.dev/net/http/httptest)
+
+---
+
+## Rewrite (18/01/23)
+
+The project can be greatly simplified by constructing a streaming data pipeline with channels and goroutines.
+
+In the initial implementation, the CSV input file is read and data for each row is retrieved concurrently.
+then the transfer data for each coin is deduped, and the wallet addresses are cross-referenced to see if the addresses
+are present in other coin transfer logs. Finally, any contracts are filtered out.
+
+This can be simplified by streaming the data through a [pipeline](https://go.dev/blog/pipelines):
+
+1. Ingest CSV rows from file (buffered i/o) into a channel.
+2. For each row in the channel get the block heights (concurrently) and push the result on to a channel.
+3. For each coin and block height range, get the transfers (concurrently) pushing the result onto a channel.
+4. The channel represents a unified event log of transfers for coins, from this build up a map of wallet summaries.
+5. We could do this before step 4, but for now do this afterward: push wallet summaries on a chan and concurrently filter out contracts.
+6. filter out any wallets that have less than n pumps
+7. collect into a slice, sort it, write it to a file. tbf we could skip the sorting part and just stream into a file.
+
+Is it possible to not collect into a map? perhaps with a parallel reduce?
+
+

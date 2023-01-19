@@ -4,11 +4,7 @@ type EtherscanError struct {
 	Message string `json:"message"`
 }
 
-type EtherscanData struct {
+type EtherscanAPIResponse struct {
 	Result string         `json:"result"`
 	Error  EtherscanError `json:"error"`
-}
-
-type EtherscanAPIResponse struct {
-	Data EtherscanData `json:"data"`
 }
