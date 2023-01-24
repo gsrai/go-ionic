@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -24,7 +25,11 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
-func getWallets(w http.ResponseWriter, req *http.Request) {
+func getWallets(w http.ResponseWriter, _ *http.Request) {
+	defer func(t time.Time) {
+		elapsed := time.Since(t)
+		log.Printf("finished getting wallets in %s 👍\n", elapsed)
+	}(time.Now())
 	r := regexp.MustCompile(`\(([^\)]+)\)`)
 	parseCoinName := func(s string) string {
 		res := r.FindString(s)
